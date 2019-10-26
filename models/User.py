@@ -1,5 +1,6 @@
 import bcrypt
 import jwt
+import json
 from mongoengine import Document, ListField, EmbeddedDocument, EmbeddedDocumentField, DateTimeField, ObjectIdField, UUIDField, StringField, EmailField, IntField, signals
 from datetime import datetime as dt
 from bson.objectid import ObjectId
@@ -36,17 +37,23 @@ class Users(Document):
       "timestamp": int(dt.timestamp(dt.now()))}, 'secret', algorithm='HS256').decode("utf8")
     new_token = Token(token=encoded)
     self.tokens.append(new_token)
-    print(new_token.to_json())
     self.save()
     return encoded
 
   def remove_auth_token(self, token):
-    self.tokens.remove(token)
+    self.tokens = list(filter(lambda x: x.token != token, self.tokens))
     self.save()
 
   def remove_all_auth_token(self):
     self.tokens = []
     self.save()
+
+  def to_json(self):
+    from models.Task import Tasks
+    tasks = Tasks.objects(owner=self.pk)
+    user_dict = json.loads(super(Users, self).to_json())
+    user_dict["tasks"] = json.loads(tasks.to_json())
+    return json.dumps(user_dict)
 
   @classmethod
   def pre_save(cls, sender, document, changed_fields=[]):
